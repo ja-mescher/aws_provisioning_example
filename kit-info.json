@@ -1,7 +1,7 @@
 {
-    "device_sn": "0123CEBD33FA5E6CEE",
+    "device_sn": "01234D1A96110543EE",
     "endpointAddress": "mqtt.2030.ltsapis.goog",
-    "thing_name": "68ce836b8f214f7ea58e01bc7ba5d2baee86433f",
+    "thing_name": "63d35e36e0f00d041967008fe8aa8259f36520d4",
     "wifi_password": "surf@gamechange",
     "wifi_ssid": "Gamechange"
 }

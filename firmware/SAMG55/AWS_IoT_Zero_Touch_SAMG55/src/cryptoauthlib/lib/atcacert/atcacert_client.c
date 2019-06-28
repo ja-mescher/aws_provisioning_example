@@ -138,13 +138,14 @@ int atcacert_write_cert(const atcacert_def_t* cert_def,
     {
         return ATCACERT_E_BAD_PARAMS;
     }
-
+printf("here 1\r\n");
     ret = atcacert_get_device_locs(cert_def, device_locs, &device_locs_count, sizeof(device_locs) / sizeof(device_locs[0]), 32);
+printf("here 2: %d\r\n", ret);
     if (ret != ATCACERT_E_SUCCESS)
     {
         return ret;
     }
-
+	
     for (i = 0; i < device_locs_count; i++)
     {
         size_t end_block;
@@ -161,17 +162,21 @@ int atcacert_write_cert(const atcacert_def_t* cert_def,
             continue;  // Public key is generated not written
 
         }
+		printf("here 3\r\n");
         ret = atcacert_get_device_data(cert_def, cert, cert_size, &device_locs[i], data);
+		printf("here 4: %d\r\n", ret);
         if (ret != ATCACERT_E_SUCCESS)
         {
             return ret;
         }
-
+		
         start_block = device_locs[i].offset / 32;
         end_block = (device_locs[i].offset + device_locs[i].count) / 32;
         for (block = (uint8_t)start_block; block < end_block; block++)
         {
+			printf("here 5\r\n");
             ret = atcab_write_zone(device_locs[i].zone, device_locs[i].slot, block, 0, &data[(block - start_block) * 32], 32);
+			printf("here 6: %d\r\n", ret);
             if (ret != ATCA_SUCCESS)
             {
                 return ret;
@@ -442,7 +447,7 @@ int atcacert_create_csr(const atcacert_def_t* csr_def, uint8_t* csr, size_t* csr
         {
             BREAK(status, "Signing CSR failed");
         }
-
+		atcab_printbin_label("\r\nDevice Signature:", sig, 64);
         // Insert the signature into the CSR template
         status = atcacert_set_signature(csr_def, csr, csr_size, csr_max_size, sig);
         if (status != ATCA_SUCCESS)

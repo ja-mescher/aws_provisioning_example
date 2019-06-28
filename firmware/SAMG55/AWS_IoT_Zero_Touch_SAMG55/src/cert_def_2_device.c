@@ -60,7 +60,7 @@ const atcacert_def_t g_cert_def_2_device = {
     },
     .comp_cert_dev_loc      = {
         .zone      = DEVZONE_DATA,
-        .slot      = 10,
+        .slot      = 12,
         .is_genkey = 0,
         .offset    = 0,
         .count     = 72

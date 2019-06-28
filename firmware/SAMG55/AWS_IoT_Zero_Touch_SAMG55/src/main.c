@@ -51,7 +51,7 @@
 #define AWS_WIFI_TASK_STACK_SIZE      (3000)                  // 3000 words (12000 bytes)
 #define AWS_WIFI_TASK_PRIORITY        (tskIDLE_PRIORITY + 2)  // The Provisioning task priority
 
-#define PROVISIONING_TASK_STACK_SIZE  (2000)                  // 2000 words (8000 bytes)
+#define PROVISIONING_TASK_STACK_SIZE  (4000)                  // 2000 words (8000 bytes)
 #define PROVISIONING_TASK_PRIORITY    (tskIDLE_PRIORITY + 1)  // The Provisioning task priority
 
 /**

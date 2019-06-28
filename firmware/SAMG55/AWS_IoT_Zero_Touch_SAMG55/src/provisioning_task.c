@@ -52,6 +52,8 @@
 #include "cert_def_1_signer.h"
 #include "cert_def_2_device.h"
 #include "cert_def_3_device_csr.h"
+#include "cert_def_4_iot_1.h"
+#include "cert_def_5_iot_2.h"
 #include "console.h"
 #include "kit_protocol_interpreter.h"
 #include "kit_protocol_utilities.h"
@@ -680,260 +682,477 @@ static enum kit_protocol_status process_board_application_gen_csr(JSON_Object *p
 }
 
 static enum kit_protocol_status process_board_application_save_credentials(JSON_Object *params_object,
-                                                                           JSON_Object *result_object)
+JSON_Object *result_object)
 {
-    ATCA_STATUS atca_status = ATCA_STATUS_UNKNOWN;
-    char *certificate = NULL;
-    char *signer_ca_public_key = NULL;
-    char *hostname = NULL;
-    uint8_t credentials_buffer[3000];
-    uint16_t credentials_buffer_length = 0;
-    
-    uint8_t read_certificate[1000];
-    uint32_t read_certificate_length;
-    uint8_t public_key[ATCA_PUB_KEY_SIZE];
-    
-    struct Eccx08A_Slot8_Metadata metadata;
-    uint8_t metadata_buffer[SLOT8_SIZE];
-    
-    do
-    {
-        // Set the successful AWS IoT Zero Touch Demo status
-        aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
-                           AWS_STATUS_SUCCESS,
-                           "The AWS IoT Demo successfully saved the device credentials.");
+	ATCA_STATUS atca_status = ATCA_STATUS_UNKNOWN;
+	char *certificate = NULL;
+	char *signer_ca_public_key = NULL;
+	char *hostname = NULL;
+	uint8_t credentials_buffer[3000];
+	uint16_t credentials_buffer_length = 0;
+	
+	uint8_t read_certificate[1000];
+	uint32_t read_certificate_length;
+	uint8_t public_key[ATCA_PUB_KEY_SIZE];
+	
+	struct Eccx08A_Slot8_Metadata metadata;
+	uint8_t metadata_buffer[SLOT8_SIZE];
+	
+	do
+	{
+		// Set the successful AWS IoT Zero Touch Demo status
+		aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
+		AWS_STATUS_SUCCESS,
+		"The AWS IoT Demo successfully saved the device credentials.");
 
+		printf("signerCaPublicKey start\r\n");
+		// Save the Signer CA public key in the ATECCx08A
+		signer_ca_public_key = (char*)json_object_get_string(params_object, "signerCaPublicKey");
+		printf("signerCaPublicKey read\r\n");
+		credentials_buffer_length = strlen(signer_ca_public_key);
+		memset(&credentials_buffer[0], 0, sizeof(credentials_buffer));
+		memcpy(&credentials_buffer[0], &signer_ca_public_key[0], credentials_buffer_length);
+		
+		credentials_buffer_length = kit_protocol_convert_hex_to_binary(credentials_buffer_length,
+		credentials_buffer);
 
-        // Save the Signer CA public key in the ATECCx08A
-        signer_ca_public_key = (char*)json_object_get_string(params_object, "signerCaPublicKey");
-        credentials_buffer_length = strlen(signer_ca_public_key);
-        memset(&credentials_buffer[0], 0, sizeof(credentials_buffer));
-        memcpy(&credentials_buffer[0], &signer_ca_public_key[0], credentials_buffer_length);
-                
-        credentials_buffer_length = kit_protocol_convert_hex_to_binary(credentials_buffer_length,
-                                                                       credentials_buffer);
+		memset(&public_key[0], 0, sizeof(public_key));
+		memcpy(&public_key[0], &credentials_buffer[0], sizeof(public_key));
 
-        memset(&public_key[0], 0, sizeof(public_key));
-        memcpy(&public_key[0], &credentials_buffer[0], sizeof(public_key));
+		atca_status = atcab_write_pubkey(SIGNER_CA_PUBLIC_KEY_SLOT, credentials_buffer);
+		if (atca_status != ATCA_SUCCESS)
+		{
+			// The ECCx08A failed to save the Signer CA public key in the ATECCx08A
+			aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
+			AWS_STATUS_ATECCx08A_COMM_FAILURE,
+			"The AWS IoT Demo failed to save the Signer CA public key.");
+			
+			// Print the status to the console
+			console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
+			aws_iot_get_status());
+			
+			// Break the do/while loop
+			break;
+		}
+		printf("signerCaPublicKey done\r\n");
+		printf("signerCert start\r\n");
+		// Save the Signer certificate in the ATECCx08A
+		certificate = (char*)json_object_get_string(params_object, "signerCert");
+		printf("signerCert read\r\n");
+		credentials_buffer_length = strlen(certificate);
+		memset(&credentials_buffer[0], 0, sizeof(credentials_buffer));
+		memcpy(&credentials_buffer[0], &certificate[0], credentials_buffer_length);
+		
+		credentials_buffer_length = kit_protocol_convert_hex_to_binary(credentials_buffer_length,
+		credentials_buffer);
+		
+		atca_status = atcacert_write_cert(&g_cert_def_1_signer, credentials_buffer,
+		credentials_buffer_length);
+		if (atca_status != ATCA_SUCCESS)
+		{
+			// The ECCx08A failed to save the Signer certificate in the ATECCx08A
+			aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
+			AWS_STATUS_ATECCx08A_COMM_FAILURE,
+			"The AWS IoT Demo failed to save the Signer certificate.");
+			
+			// Print the status to the console
+			console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
+			aws_iot_get_status());
+			
+			// Break the do/while loop
+			break;
+		}
+		printf("signerCert done\r\n");
+		printf("Verify the Signer certificate start\r\n");
+		// Verify the Signer certificate in the ATECCx08A
+		read_certificate_length = sizeof(read_certificate);
+		atca_status = atcacert_read_cert(&g_cert_def_1_signer,
+		public_key,
+		read_certificate,
+		(size_t*)&read_certificate_length);
+		if (atca_status != ATCA_SUCCESS)
+		{
+			// The ECCx08A failed to save the Signer certificate in the ATECCx08A
+			aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
+			AWS_STATUS_ATECCx08A_COMM_FAILURE,
+			"The AWS IoT Demo failed to verify the Signer certificate.");
+			
+			// Print the status to the console
+			console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
+			aws_iot_get_status());
+			
+			// Break the do/while loop
+			break;
+		}
+		
+		atca_status = atcacert_verify_cert_hw(&g_cert_def_1_signer, read_certificate,
+		read_certificate_length, public_key);
+		if (atca_status != ATCA_SUCCESS)
+		{
+			// The ECCx08A failed to save the Signer certificate in the ATECCx08A
+			aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
+			AWS_STATUS_ATECCx08A_COMM_FAILURE,
+			"The AWS IoT Demo failed to verify the Signer certificate.");
+			
+			// Print the status to the console
+			console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
+			aws_iot_get_status());
+			
+			// Break the do/while loop
+			break;
+		}
+		printf("Verify the Signer certificate success\r\n");
+		
+		// Get the Signer public key from the certificate
+		atca_status = atcacert_get_subj_public_key(&g_cert_def_1_signer, read_certificate,
+		read_certificate_length, public_key);
+		if (atca_status != ATCA_SUCCESS)
+		{
+			// The ECCx08A failed to save the Signer certificate in the ATECCx08A
+			aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
+			AWS_STATUS_ATECCx08A_COMM_FAILURE,
+			"The AWS IoT Demo failed to retrieve the Signer public key.");
+			
+			// Print the status to the console
+			console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
+			aws_iot_get_status());
 
-        atca_status = atcab_write_pubkey(SIGNER_CA_PUBLIC_KEY_SLOT, credentials_buffer);
-        if (atca_status != ATCA_SUCCESS)
-        {
-            // The ECCx08A failed to save the Signer CA public key in the ATECCx08A
-            aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
-                               AWS_STATUS_ATECCx08A_COMM_FAILURE,
-                               "The AWS IoT Demo failed to save the Signer CA public key.");
-            
-            // Print the status to the console
-            console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
-                                     aws_iot_get_status());
-            
-            // Break the do/while loop
-            break;
-        }
-        
-        
-        // Save the Signer certificate in the ATECCx08A
-        certificate = (char*)json_object_get_string(params_object, "signerCert");
-        credentials_buffer_length = strlen(certificate);
-        memset(&credentials_buffer[0], 0, sizeof(credentials_buffer));
-        memcpy(&credentials_buffer[0], &certificate[0], credentials_buffer_length);
-        
-        credentials_buffer_length = kit_protocol_convert_hex_to_binary(credentials_buffer_length,
-                                                                       credentials_buffer);
-        
-        atca_status = atcacert_write_cert(&g_cert_def_1_signer, credentials_buffer,
-                                          credentials_buffer_length);
-        if (atca_status != ATCA_SUCCESS)
-        {
-            // The ECCx08A failed to save the Signer certificate in the ATECCx08A
-            aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
-                               AWS_STATUS_ATECCx08A_COMM_FAILURE,
-                               "The AWS IoT Demo failed to save the Signer certificate.");
-            
-            // Print the status to the console
-            console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
-                                     aws_iot_get_status());
-            
-            // Break the do/while loop
-            break;
-        }
+			// Break the do/while loop
+			break;
+		}
+		
+		printf("deviceCert start\r\n");
+		// Save the Device certificate in the ATECCx08A
+		certificate = (char*)json_object_get_string(params_object, "deviceCert");
+		credentials_buffer_length = strlen(certificate);
+		memset(&credentials_buffer[0], 0, sizeof(credentials_buffer));
+		memcpy(&credentials_buffer[0], &certificate[0], credentials_buffer_length);
+		
+		credentials_buffer_length = kit_protocol_convert_hex_to_binary(credentials_buffer_length,
+		credentials_buffer);
+		
+		atca_status = atcacert_write_cert(&g_cert_def_2_device, credentials_buffer,
+		credentials_buffer_length);
+		if (atca_status != ATCA_SUCCESS)
+		{
+			// The ECCx08A failed to save the Device certificate in the ATECCx08A
+			aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
+			AWS_STATUS_ATECCx08A_COMM_FAILURE,
+			"The AWS IoT Demo failed to save the Device certificate.");
+			
+			// Print the status to the console
+			console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
+			aws_iot_get_status());
+			
+			// Break the do/while loop
+			break;
+		}
+		printf("deviceCert done\r\n");
+		printf("Verify the Device certificate start\r\n");
+		// Verify the Device certificate in the ATECCx08A
+		read_certificate_length = sizeof(read_certificate);
+		atca_status = atcacert_read_cert(&g_cert_def_2_device,
+		public_key,
+		read_certificate,
+		(size_t*)&read_certificate_length);
+		if (atca_status != ATCA_SUCCESS)
+		{
+			// The ECCx08A failed to save the Signer certificate in the ATECCx08A
+			aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
+			AWS_STATUS_ATECCx08A_COMM_FAILURE,
+			"The AWS IoT Demo failed to verify the Device certificate.");
+			
+			// Print the status to the console
+			console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
+			aws_iot_get_status());
+			
+			// Break the do/while loop
+			break;
+		}
+		
+		atca_status = atcacert_verify_cert_hw(&g_cert_def_2_device, read_certificate,
+		read_certificate_length, public_key);
+		if (atca_status != ATCA_SUCCESS)
+		{
+			// The ECCx08A failed to save the Signer certificate in the ATECCx08A
+			aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
+			AWS_STATUS_ATECCx08A_COMM_FAILURE,
+			"The AWS IoT Demo failed to verify the Device certificate.");
+			
+			// Print the status to the console
+			console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
+			aws_iot_get_status());
+			
+			// Break the do/while loop
+			break;
+		}
+		printf("Verify the Device certificate success\r\n");
 
+		// Save the hostname in the ATECCx08A
+		//        do
+		//        {
+		//            memset(&metadata_buffer[0], 0, sizeof(metadata_buffer));
+		//            atca_status = atcab_read_bytes_zone(ATCA_ZONE_DATA, METADATA_SLOT, 0,
+		//                                                metadata_buffer, sizeof(metadata_buffer));
+		//            if (atca_status != ATCA_SUCCESS)
+		//            {
+		//                // Break the do/while loop
+		//                break;
+		//            }
+		//
+		//            hostname = (char*)json_object_get_string(params_object, "hostName");
+		//
+		//            memcpy(&metadata, &metadata_buffer[0], sizeof(metadata));
+		//            memset(&(metadata.hostname)[0], 0, sizeof(metadata.hostname));
+		//            memcpy(&(metadata.hostname)[0], &hostname[0], strlen(hostname));
+		//            metadata.hostname_size = strlen(hostname);
+		//
+		//            // Set the ATECCx08A device provisioned flag
+		//            metadata.provision_flag = (metadata.provision_flag & 0x0000FFFF) + ((uint32_t)SLOT8_AWS_PROVISIONED_VALUE << 16);
+		//
+		//            // Save the metadata to the ATECCx08A
+		//            memset(&metadata_buffer[0], 0, sizeof(metadata_buffer));
+		//            memcpy(&metadata_buffer[0], &metadata, sizeof(metadata));
+		//
+		//            atca_status = atcab_write_bytes_zone(ATCA_ZONE_DATA, METADATA_SLOT, 0,
+		//                                                 metadata_buffer, sizeof(metadata_buffer));
+		//        } while (false);
+		//
+		//        if (atca_status != ATCA_SUCCESS)
+		//        {
+		//            // The ECCx08A failed to save the Hostname in the ATECCx08A
+		//            aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
+		//                               AWS_STATUS_ATECCx08A_COMM_FAILURE,
+		//                               "The AWS IoT Demo failed to save the Hostname.");
+		//
+		//            // Print the status to the console
+		//            console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
+		//                                     aws_iot_get_status());
+		//
+		//            // Break the do/while loop
+		//            break;
+		//        }
+		printf("Complete\r\n");
 
-        // Verify the Signer certificate in the ATECCx08A
-        read_certificate_length = sizeof(read_certificate);
-        atca_status = atcacert_read_cert(&g_cert_def_1_signer,
-                                         public_key,
-                                         read_certificate,
-                                         (size_t*)&read_certificate_length);
-        if (atca_status != ATCA_SUCCESS)
-        {
-            // The ECCx08A failed to save the Signer certificate in the ATECCx08A
-            aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
-                               AWS_STATUS_ATECCx08A_COMM_FAILURE,
-                               "The AWS IoT Demo failed to verify the Signer certificate.");
-            
-            // Print the status to the console
-            console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
-                                     aws_iot_get_status());
-            
-            // Break the do/while loop
-            break;
-        }
-        
-        atca_status = atcacert_verify_cert_hw(&g_cert_def_1_signer, read_certificate, 
-                                              read_certificate_length, public_key);
-        if (atca_status != ATCA_SUCCESS)
-        {
-            // The ECCx08A failed to save the Signer certificate in the ATECCx08A
-            aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
-                               AWS_STATUS_ATECCx08A_COMM_FAILURE,
-                               "The AWS IoT Demo failed to verify the Signer certificate.");
-            
-            // Print the status to the console
-            console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
-                                     aws_iot_get_status());
-            
-            // Break the do/while loop
-            break;
-        }
+		g_provisioning_state = AWS_STATE_ATECCx08A_CONFIGURE;
+	} while (false);
 
-        
-        // Get the Signer public key from the certificate
-        atca_status = atcacert_get_subj_public_key(&g_cert_def_1_signer, read_certificate, 
-                                                   read_certificate_length, public_key);
-        if (atca_status != ATCA_SUCCESS)
-        {
-            // The ECCx08A failed to save the Signer certificate in the ATECCx08A
-            aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
-                               AWS_STATUS_ATECCx08A_COMM_FAILURE,
-                               "The AWS IoT Demo failed to retrieve the Signer public key.");
-            
-            // Print the status to the console
-            console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
-                                     aws_iot_get_status());
+	// The AWS IoT Zero Touch Demo saveCredentials message will always return KIT_STATUS_SUCCESS
+	return KIT_STATUS_SUCCESS;
+}
 
-            // Break the do/while loop
-            break;
-        }
-        
+static enum kit_protocol_status process_board_application_save_iot_credentials(JSON_Object *params_object,
+JSON_Object *result_object)
+{
+	ATCA_STATUS atca_status = ATCA_STATUS_UNKNOWN;
+	char *certificate = NULL;
+	char *signer_ca_public_key = NULL;
+	char *hostname = NULL;
+	uint8_t credentials_buffer[3000];
+	uint16_t credentials_buffer_length = 0;
+	
+	uint8_t certificate_pem_buffer[1000];
+	uint32_t certificate_pem_buffer_length;
+	uint8_t read_certificate[1000];
+	uint32_t read_certificate_length;
+	uint8_t public_key[ATCA_PUB_KEY_SIZE];
+	
+	struct Eccx08A_Slot8_Metadata metadata;
+	uint8_t metadata_buffer[SLOT8_SIZE];
+	
+	do
+	{
+		// Set the successful AWS IoT Zero Touch Demo status
+		aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
+		AWS_STATUS_SUCCESS,
+		"The AWS IoT Demo successfully saved the device credentials.");
+		
+		printf("iotCert1PublicKey start\r\n");
+		// Save the Signer CA public key in the ATECCx08A
+		signer_ca_public_key = (char*)json_object_get_string(params_object, "iotCert1PublicKey");
+		printf("iotCert1PublicKey read\r\n");
+		credentials_buffer_length = strlen(signer_ca_public_key);
+		memset(&credentials_buffer[0], 0, sizeof(credentials_buffer));
+		memcpy(&credentials_buffer[0], &signer_ca_public_key[0], credentials_buffer_length);
+		
+		credentials_buffer_length = kit_protocol_convert_hex_to_binary(credentials_buffer_length,
+		credentials_buffer);
 
-        // Save the Device certificate in the ATECCx08A
-        certificate = (char*)json_object_get_string(params_object, "deviceCert");
-        credentials_buffer_length = strlen(certificate);
-        memset(&credentials_buffer[0], 0, sizeof(credentials_buffer));
-        memcpy(&credentials_buffer[0], &certificate[0], credentials_buffer_length);
-        
-        credentials_buffer_length = kit_protocol_convert_hex_to_binary(credentials_buffer_length,
-                                                                       credentials_buffer);
-        
-        atca_status = atcacert_write_cert(&g_cert_def_2_device, credentials_buffer,
-                                          credentials_buffer_length);
-        if (atca_status != ATCA_SUCCESS)
-        {
-            // The ECCx08A failed to save the Device certificate in the ATECCx08A
-            aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
-                               AWS_STATUS_ATECCx08A_COMM_FAILURE,
-                               "The AWS IoT Demo failed to save the Device certificate.");
-            
-            // Print the status to the console
-            console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
-                                     aws_iot_get_status());
-            
-            // Break the do/while loop
-            break;
-        }
+		memset(&public_key[0], 0, sizeof(public_key));
+		memcpy(&public_key[0], &credentials_buffer[0], sizeof(public_key));
 
+		atca_status = atcab_write_pubkey(9, credentials_buffer);
+		if (atca_status != ATCA_SUCCESS)
+		{
+			// The ECCx08A failed to save the Signer CA public key in the ATECCx08A
+			aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
+			AWS_STATUS_ATECCx08A_COMM_FAILURE,
+			"The AWS IoT Demo failed to save the iotCert1PublicKey public key.");
+			
+			// Print the status to the console
+			console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
+			aws_iot_get_status());
+			
+			// Break the do/while loop
+			break;
+		}
+		printf("iotCert1PublicKey done\r\n");
 
-        // Verify the Device certificate in the ATECCx08A
-        read_certificate_length = sizeof(read_certificate);
-        atca_status = atcacert_read_cert(&g_cert_def_2_device,
-                                         public_key,
-                                         read_certificate,
-                                         (size_t*)&read_certificate_length);
-        if (atca_status != ATCA_SUCCESS)
-        {
-            // The ECCx08A failed to save the Signer certificate in the ATECCx08A
-            aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
-                               AWS_STATUS_ATECCx08A_COMM_FAILURE,
-                               "The AWS IoT Demo failed to verify the Device certificate.");
-            
-            // Print the status to the console
-            console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
-                                     aws_iot_get_status());
-            
-            // Break the do/while loop
-            break;
-        }
-        
-        atca_status = atcacert_verify_cert_hw(&g_cert_def_2_device, read_certificate,
-                                              read_certificate_length, public_key);
-        if (atca_status != ATCA_SUCCESS)
-        {
-            // The ECCx08A failed to save the Signer certificate in the ATECCx08A
-            aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
-                               AWS_STATUS_ATECCx08A_COMM_FAILURE,
-                               "The AWS IoT Demo failed to verify the Device certificate.");
-            
-            // Print the status to the console
-            console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
-                                     aws_iot_get_status());
-            
-            // Break the do/while loop
-            break;
-        }
+		printf("iotCert1 start\r\n");
+		// Save the Signer certificate in the ATECCx08A
+		certificate = (char*)json_object_get_string(params_object, "iotCert1");
+		printf("iotCert1 read\r\n");
+		credentials_buffer_length = strlen(certificate);
+		memset(&credentials_buffer[0], 0, sizeof(credentials_buffer));
+		memcpy(&credentials_buffer[0], &certificate[0], credentials_buffer_length);
+		
+		credentials_buffer_length = kit_protocol_convert_hex_to_binary(credentials_buffer_length,
+		credentials_buffer);
+		
+		atca_status = atcacert_write_cert(&g_cert_def_4_iot_1, credentials_buffer,
+		credentials_buffer_length);
+		printf("iotCert1 write atca_status: %d\r\n", atca_status);
+		if (atca_status != ATCA_SUCCESS)
+		{
+			// The ECCx08A failed to save the IoT primary certificate in the ATECCx08A
+			aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
+			AWS_STATUS_ATECCx08A_COMM_FAILURE,
+			"The AWS IoT Demo failed to save the IoT primary certificate.");
+			
+			// Print the status to the console
+			console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
+			aws_iot_get_status());
+			
+			// Break the do/while loop
+			break;
+		}
+		printf("iotCert1 done\r\n");
+		
+		read_certificate_length = sizeof(read_certificate);
+		atca_status = atcacert_read_cert(&g_cert_def_4_iot_1,
+		NULL,
+		read_certificate,
+		(size_t*)&read_certificate_length);
+		printf("iotCert1 atcacert_read_cert atca_status: %d\r\n", atca_status);
+		if (atca_status != ATCA_SUCCESS)
+		{
+			// The ECCx08A failed to save the Signer certificate in the ATECCx08A
+			aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
+			AWS_STATUS_ATECCx08A_COMM_FAILURE,
+			"The AWS IoT Demo failed to read IoT primary certificate.");
+			
+			// Print the status to the console
+			console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
+			aws_iot_get_status());
+			
+			// Break the do/while loop
+			break;
+		}
+		printf("iotCert1 read done\r\n");
+		
+		certificate_pem_buffer_length = sizeof(certificate_pem_buffer);
+		if ((atca_status = atcacert_encode_pem_cert(read_certificate, read_certificate_length, certificate_pem_buffer, &certificate_pem_buffer_length)) != ATCA_SUCCESS)
+		 break;
 
+		printf("Certificate in pem :\r\n%s", certificate_pem_buffer);
+		
+		printf("iotCert2PublicKey start\r\n");
+		// Save the Signer CA public key in the ATECCx08A
+		signer_ca_public_key = (char*)json_object_get_string(params_object, "iotCert2PublicKey");
+		printf("iotCert2PublicKey read\r\n");
+		credentials_buffer_length = strlen(signer_ca_public_key);
+		memset(&credentials_buffer[0], 0, sizeof(credentials_buffer));
+		memcpy(&credentials_buffer[0], &signer_ca_public_key[0], credentials_buffer_length);
+		
+		credentials_buffer_length = kit_protocol_convert_hex_to_binary(credentials_buffer_length,
+		credentials_buffer);
 
-        // Save the hostname in the ATECCx08A
-        do 
-        {
-            memset(&metadata_buffer[0], 0, sizeof(metadata_buffer));
-            atca_status = atcab_read_bytes_zone(ATCA_ZONE_DATA, METADATA_SLOT, 0,
-                                                metadata_buffer, sizeof(metadata_buffer));
-            if (atca_status != ATCA_SUCCESS)
-            {
-                // Break the do/while loop
-                break;
-            }
-            
-            hostname = (char*)json_object_get_string(params_object, "hostName");
+		memset(&public_key[0], 0, sizeof(public_key));
+		memcpy(&public_key[0], &credentials_buffer[0], sizeof(public_key));
 
-            memcpy(&metadata, &metadata_buffer[0], sizeof(metadata));
-            memset(&(metadata.hostname)[0], 0, sizeof(metadata.hostname));
-            memcpy(&(metadata.hostname)[0], &hostname[0], strlen(hostname));
-            metadata.hostname_size = strlen(hostname);
+		atca_status = atcab_write_pubkey(10, credentials_buffer);
+		if (atca_status != ATCA_SUCCESS)
+		{
+			// The ECCx08A failed to save the Signer CA public key in the ATECCx08A
+			aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
+			AWS_STATUS_ATECCx08A_COMM_FAILURE,
+			"The AWS IoT Demo failed to save the iotCert2PublicKey public key.");
+			
+			// Print the status to the console
+			console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
+			aws_iot_get_status());
+			
+			// Break the do/while loop
+			break;
+		}
+		printf("iotCert2PublicKey done\r\n");
+		
+		
+		printf("iotCert2 start\r\n");
+		// Save the Signer certificate in the ATECCx08A
+		certificate = (char*)json_object_get_string(params_object, "iotCert2");
+		printf("iotCert2 read\r\n");
+		credentials_buffer_length = strlen(certificate);
+		memset(&credentials_buffer[0], 0, sizeof(credentials_buffer));
+		memcpy(&credentials_buffer[0], &certificate[0], credentials_buffer_length);
+		
+		credentials_buffer_length = kit_protocol_convert_hex_to_binary(credentials_buffer_length,
+		credentials_buffer);
+		
+		atca_status = atcacert_write_cert(&g_cert_def_5_iot_2, credentials_buffer,
+		credentials_buffer_length);
+		printf("iotCert2 write atca_status: %d\r\n", atca_status);
+		if (atca_status != ATCA_SUCCESS)
+		{
+			// The ECCx08A failed to save the IoT primary certificate in the ATECCx08A
+			aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
+			AWS_STATUS_ATECCx08A_COMM_FAILURE,
+			"The AWS IoT Demo failed to save the IoT secondary certificate.");
+			
+			// Print the status to the console
+			console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
+			aws_iot_get_status());
+			
+			// Break the do/while loop
+			break;
+		}
+		printf("iotCert2 done\r\n");
+		
+		read_certificate_length = sizeof(read_certificate);
+		atca_status = atcacert_read_cert(&g_cert_def_5_iot_2,
+		NULL,
+		read_certificate,
+		(size_t*)&read_certificate_length);
+		printf("iotCert2 atcacert_read_cert atca_status: %d\r\n", atca_status);
+		if (atca_status != ATCA_SUCCESS)
+		{
+			// The ECCx08A failed to save the Signer certificate in the ATECCx08A
+			aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
+			AWS_STATUS_ATECCx08A_COMM_FAILURE,
+			"The AWS IoT Demo failed to read IoT primary certificate.");
+			
+			// Print the status to the console
+			console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
+			aws_iot_get_status());
+			
+			// Break the do/while loop
+			break;
+		}
+		printf("iotCert2 read done\r\n");
+		
+		certificate_pem_buffer_length = sizeof(certificate_pem_buffer);
+		if ((atca_status = atcacert_encode_pem_cert(read_certificate, read_certificate_length, certificate_pem_buffer, &certificate_pem_buffer_length)) != ATCA_SUCCESS)
+		break;
 
-            // Set the ATECCx08A device provisioned flag
-            metadata.provision_flag = (metadata.provision_flag & 0x0000FFFF) + ((uint32_t)SLOT8_AWS_PROVISIONED_VALUE << 16);
+		printf("Certificate in pem :\r\n%s", certificate_pem_buffer);
+		
+		printf("Complete\r\n");
 
-            // Save the metadata to the ATECCx08A
-            memset(&metadata_buffer[0], 0, sizeof(metadata_buffer));
-            memcpy(&metadata_buffer[0], &metadata, sizeof(metadata));
-            
-            atca_status = atcab_write_bytes_zone(ATCA_ZONE_DATA, METADATA_SLOT, 0,
-                                                 metadata_buffer, sizeof(metadata_buffer));
-        } while (false);
+		g_provisioning_state = AWS_STATE_ATECCx08A_CONFIGURE;
+	} while (false);
 
-        if (atca_status != ATCA_SUCCESS)
-        {
-            // The ECCx08A failed to save the Hostname in the ATECCx08A
-            aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
-                               AWS_STATUS_ATECCx08A_COMM_FAILURE,
-                               "The AWS IoT Demo failed to save the Hostname.");
-            
-            // Print the status to the console
-            console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
-                                     aws_iot_get_status());
-            
-            // Break the do/while loop
-            break;
-        }
-
-        g_provisioning_state = AWS_STATE_ATECCx08A_CONFIGURE;
-    } while (false);
-
-    // The AWS IoT Zero Touch Demo saveCredentials message will always return KIT_STATUS_SUCCESS
-    return KIT_STATUS_SUCCESS;
+	// The AWS IoT Zero Touch Demo saveCredentials message will always return KIT_STATUS_SUCCESS
+	return KIT_STATUS_SUCCESS;
 }
 
 static enum kit_protocol_status process_board_application_reset_kit(JSON_Object *params_object,
@@ -1401,6 +1620,11 @@ enum kit_protocol_status kit_board_application(uint32_t device_handle,
         // Handle the incoming AWS IoT Zero Touch saveCredentials command message
         process_board_application_save_credentials(params_object, result_object);
     }
+	else if(strcmp(message_method, "saveIoTCredentials") == 0)
+	{
+		// Handle the incoming Google IoT saveIoTCredentials command message
+		process_board_application_save_iot_credentials(params_object, result_object);
+	}
     else if (strcmp(message_method, "resetKit") == 0)
     {
         // Handle the incoming AWS IoT Zero Touch resetKit command message

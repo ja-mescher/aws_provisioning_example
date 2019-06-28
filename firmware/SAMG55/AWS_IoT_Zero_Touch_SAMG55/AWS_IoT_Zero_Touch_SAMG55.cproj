@@ -1053,6 +1053,18 @@
     <None Include="src\config\conf_spi_master.h">
       <SubType>compile</SubType>
     </None>
+    <Compile Include="src\cert_def_4_iot_1.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\cert_def_4_iot_1.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\cert_def_5_iot_2.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\cert_def_5_iot_2.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\ecc_configure.c">
       <SubType>compile</SubType>
     </Compile>
