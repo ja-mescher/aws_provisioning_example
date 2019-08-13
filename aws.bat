@@ -1,0 +1,1 @@
+C:\Users\james.hoelscher\AppData\Local\Programs\Python\Python37\python3.exe aws.py %*

@@ -293,7 +293,7 @@ def main():
         f.write(device_cert.public_bytes(encoding=serialization.Encoding.PEM))
 
     if(not True):
-        print('\nProvisioning device with AWS IoT credentials')
+        #print('\nProvisioning device with AWS IoT credentials')
         pub_nums = root_ca_cert.public_key().public_numbers()
         pubkey =  pub_nums.x.to_bytes(32, byteorder='big', signed=False)
         pubkey += pub_nums.y.to_bytes(32, byteorder='big', signed=False)

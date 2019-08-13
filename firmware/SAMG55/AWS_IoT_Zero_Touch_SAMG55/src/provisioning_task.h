@@ -61,6 +61,7 @@
 #define DEVICE_KEY_SLOT            (0)
 #define METADATA_SLOT              (8)
 #define SIGNER_CA_PUBLIC_KEY_SLOT  (15)
+#define SECURE_BOOT_PUBLIC_KEY_SLOT (11)
 
 
 // ATECCx08A Slot 8 Metadata

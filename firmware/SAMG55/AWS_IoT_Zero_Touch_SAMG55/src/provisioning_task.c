@@ -694,16 +694,45 @@ JSON_Object *result_object)
 	uint8_t read_certificate[1000];
 	uint32_t read_certificate_length;
 	uint8_t public_key[ATCA_PUB_KEY_SIZE];
+	uint8_t public_key_slot_data[72];
+	uint8_t secureboot_public_key[] = {
+		0x21, 0x67, 0x64, 0x1c, 0x9f, 0xc4, 0x13, 0x6c, 0xb4, 0xa9, 0x1a, 0x4f, 0x56, 0xd4, 0x8b, 0x83,
+		0x76, 0x9e, 0x3a, 0xd8, 0x1e, 0x0e, 0x01, 0xb7, 0x59, 0xc7, 0xc7, 0x94, 0x74, 0x3f, 0x1a, 0xa6,
+		0x30, 0xcc, 0xb7, 0xec, 0xfc, 0xa8, 0x2e, 0xf0, 0x5b, 0xa1, 0x3d, 0x5b, 0x34, 0x53, 0x11, 0x18,
+		0xa0, 0x67, 0x73, 0x7b, 0xdb, 0x1e, 0x3d, 0x1b, 0xbc, 0xdd, 0x10, 0x5a, 0x39, 0x23, 0x25, 0x3e
+	};
 	
 	struct Eccx08A_Slot8_Metadata metadata;
 	uint8_t metadata_buffer[SLOT8_SIZE];
 	
 	do
-	{
+	{		
 		// Set the successful AWS IoT Zero Touch Demo status
 		aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
 		AWS_STATUS_SUCCESS,
 		"The AWS IoT Demo successfully saved the device credentials.");
+		
+		/*Write Pub Key to Slot... Reformat public key into padded format */
+		memmove(&public_key_slot_data[40], &secureboot_public_key[32], 32);    // Move Y to padded position
+		memset(&public_key_slot_data[36], 0, 4);                    // Add Y padding bytes
+		memmove(&public_key_slot_data[4], &secureboot_public_key[0], 32);      // Move X to padded position
+		memset(&public_key_slot_data[0], 0, 4);                     // Add X padding bytes
+
+		/*Write Public Key to SecureBootPubKey slot*/
+		if ((atca_status = atcab_write_bytes_zone(ATCA_ZONE_DATA, SECURE_BOOT_PUBLIC_KEY_SLOT, 0, public_key_slot_data, 72)) != ATCA_SUCCESS)
+		{
+			// The ECCx08A failed to save the Signer CA public key in the ATECCx08A
+			aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
+			AWS_STATUS_ATECCx08A_COMM_FAILURE,
+			"The AWS IoT Demo failed to save the Secure Boot public key.");
+			
+			// Print the status to the console
+			console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
+			aws_iot_get_status());
+			
+			// Break the do/while loop
+			break;
+		}
 
 		printf("signerCaPublicKey start\r\n");
 		// Save the Signer CA public key in the ATECCx08A
@@ -735,6 +764,24 @@ JSON_Object *result_object)
 			break;
 		}
 		printf("signerCaPublicKey done\r\n");
+		
+		atca_status = atcab_read_pubkey(SIGNER_CA_PUBLIC_KEY_SLOT, public_key);
+		if (atca_status != ATCA_SUCCESS)
+		{
+			
+			// The ECCx08A failed to read the Signer CA public key in the ATECCx08A
+			aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
+			AWS_STATUS_ATECCx08A_COMM_FAILURE,
+			"The AWS IoT Demo failed to read the Signer CA public key.");
+			
+			// Print the status to the console
+			console_print_aws_status("AWS IoT Zero Touch Demo saveCredentials Message:",
+			aws_iot_get_status());
+			
+			// Break the do/while loop
+			break;
+		}
+		
 		printf("signerCert start\r\n");
 		// Save the Signer certificate in the ATECCx08A
 		certificate = (char*)json_object_get_string(params_object, "signerCert");
@@ -932,6 +979,54 @@ JSON_Object *result_object)
 		//            // Break the do/while loop
 		//            break;
 		//        }
+		
+
+		atca_status = atcab_lock_data_zone();
+		if(atca_status != ATCA_SUCCESS)
+		return atca_status;
+		
+		if (atca_status == ATCA_SUCCESS)
+		{
+			atca_status = atcab_lock_data_slot(0);
+			if(atca_status != ATCA_SUCCESS)
+				return atca_status;
+		}
+		if (atca_status == ATCA_SUCCESS)
+		{
+			atca_status = atcab_lock_data_slot(2);
+			if(atca_status != ATCA_SUCCESS)
+			return atca_status;
+		}
+		if (atca_status == ATCA_SUCCESS)
+		{
+			atca_status = atcab_lock_data_slot(3);
+			if(atca_status != ATCA_SUCCESS)
+			return atca_status;
+		}
+		if (atca_status == ATCA_SUCCESS)
+		{
+			atca_status = atcab_lock_data_slot(12);
+			if(atca_status != ATCA_SUCCESS)
+			return atca_status;
+		}
+		if (atca_status == ATCA_SUCCESS)
+		{
+			atca_status = atcab_lock_data_slot(13);
+			if(atca_status != ATCA_SUCCESS)
+			return atca_status;
+		}
+		if (atca_status == ATCA_SUCCESS)
+		{
+			atca_status = atcab_lock_data_slot(14);
+			if(atca_status != ATCA_SUCCESS)
+			return atca_status;
+		}
+		if (atca_status == ATCA_SUCCESS)
+		{
+			atca_status = atcab_lock_data_slot(15);
+			if(atca_status != ATCA_SUCCESS)
+			return atca_status;
+		}
 		printf("Complete\r\n");
 
 		g_provisioning_state = AWS_STATE_ATECCx08A_CONFIGURE;
@@ -961,7 +1056,7 @@ JSON_Object *result_object)
 	uint8_t metadata_buffer[SLOT8_SIZE];
 	
 	do
-	{
+	{		
 		// Set the successful AWS IoT Zero Touch Demo status
 		aws_iot_set_status(AWS_STATE_ATECCx08A_CONFIGURE,
 		AWS_STATUS_SUCCESS,
@@ -1592,6 +1687,13 @@ enum kit_protocol_status kit_board_application(uint32_t device_handle,
     // Handle the incoming AWS IoT Zero Touch command message
     if (strcmp(message_method, "init") == 0)
     {
+		ATCA_STATUS atca_status = ATCA_SUCCESS;
+		{
+			atca_status = atcab_lock_data_slot(15);
+			if(atca_status != ATCA_SUCCESS)
+			return atca_status;
+		}
+		printf("atcab_lock_data_slot(15)\r\n");
         // Handle the incoming AWS IoT Zero Touch Init command message
         process_board_application_init(params_object, result_object);
     }

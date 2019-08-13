@@ -1,7 +1,23 @@
 {
-    "device_sn": "01234D1A96110543EE",
-    "endpointAddress": "mqtt.2030.ltsapis.goog",
-    "thing_name": "63d35e36e0f00d041967008fe8aa8259f36520d4",
+    "certificateDescription": {
+        "autoRegistrationStatus": "ENABLE",
+        "certificateArn": "arn:aws:iot:us-east-1:194976303691:cacert/7da376320d369a90dfdff32f8b9dacf00880e5404f78b5f74c04ab5a0d127ed5",
+        "certificateId": "7da376320d369a90dfdff32f8b9dacf00880e5404f78b5f74c04ab5a0d127ed5",
+        "certificatePem": "-----BEGIN CERTIFICATE-----\nMIIByDCCAW6gAwIBAgIQRAAStM0jwpxFEwWL4AARZDAKBggqhkjOPQQDAjAwMRQw\nEgYDVQQKDAtFeGFtcGxlIEluYzEYMBYGA1UEAwwPRXhhbXBsZSBSb290IENBMB4X\nDTE5MDUwMTE4MTQ0MVoXDTI5MDUwMTE4MTQ0MVowNDEUMBIGA1UECgwLRXhhbXBs\nZSBJbmMxHDAaBgNVBAMME0V4YW1wbGUgU2lnbmVyIEZGRkYwWTATBgcqhkjOPQIB\nBggqhkjOPQMBBwNCAARZOo1AWgwarV8PmgNRjqxDpc//GlVsTtwIJSyZoVMCDbQ0\n6Q0O+/h7kKqEX/+T+HxB/LelRxyOgfhrtOqODMjPo2YwZDASBgNVHRMBAf8ECDAG\nAQH/AgEAMA4GA1UdDwEB/wQEAwIBhjAdBgNVHQ4EFgQUUzdsbdRTTCSCQIYePHW2\nxjgqCTUwHwYDVR0jBBgwFoAU3Xv0NEwdBuFclnrWd8XOrum8FpQwCgYIKoZIzj0E\nAwIDSAAwRQIhALPPDXmoNl+ka6FTXQ7/qakz08ziV+OO1dmRtEMFpGiPAiBbktrd\nH4vUuA4TXleS/7rwAd6EB1hqOVAE0AfbCAK3cQ==\n-----END CERTIFICATE-----\n",
+        "creationDate": "2019-08-13T10:11:20-04:00",
+        "customerVersion": 1,
+        "generationId": "03b25dae-5319-44d3-a92a-e74b7dbd3cb0",
+        "lastModifiedDate": "2019-08-13T10:11:20-04:00",
+        "ownedBy": "194976303691",
+        "status": "ACTIVE",
+        "validity": {
+            "notAfter": "2029-05-01T14:14:41-04:00",
+            "notBefore": "2019-05-01T14:14:41-04:00"
+        }
+    },
+    "device_sn": "01231F8C9C3DA4B9EE",
+    "endpointAddress": "aq2cc4yiqqum.iot.us-east-1.amazonaws.com",
+    "thing_name": "060523bba2a32cdbe40cc83edf96091fe2fc33e7",
     "wifi_password": "surf@gamechange",
     "wifi_ssid": "Gamechange"
 }
